@@ -6,8 +6,6 @@
   (:import  [taoensso.tufte.impl IdStats Stats Clock])
   #+cljs (:require-macros [taoensso.tufte :refer (profiled)]))
 
-;; TODO macro perf
-
 ;;;; Level filtering
 
 ;; We deliberately make it possible to set a min-level > any form level
@@ -578,7 +576,7 @@
          (p :div  (reduce / nums)))))
 
   (profile  2 :arithmetic (dotimes [n 100] (arithmetic)))
-  (profile  2 :high-n     (dotimes [n 1e5] (p :p1 nil))) ; 25.25ms
-  (profile  2 :high-n     (dotimes [n 1e6] (p :p1 nil))) ; 153.78ms
+  (profile  2 :high-n     (dotimes [n 1e5] (p :p1 nil))) ; 23.11ms
+  (profile  2 :high-n     (dotimes [n 1e6] (p :p1 nil))) ; 137.26ms
   (profiled 2 (dotimes [n 1e6] (p :p1 nil)))
   (profiled 2 :when (chance 0.5) "bar"))

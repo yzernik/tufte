@@ -5,8 +5,6 @@
   #+clj (:import [java.util LinkedList]
                  [java.util.concurrent ArrayBlockingQueue]))
 
-;; TODO Benchmark macro-based mutable times
-
 ;;;; Pdata
 
 (defrecord PData [^long __t0]) ; + {<id> <times> :__m-id-stats {<id> <IdStats>}}
@@ -20,7 +18,7 @@
       ([]        (.get proxy))
       ([new-val] (.set proxy new-val) new-val)))
 
-  #+cljs
+  #+cljs ; Assuming we have Clojure 1.7+ for Cljs
   (let [state_ (volatile! false)] ; Automatically thread-local in js
     (fn
       ([]                @state_)
@@ -41,19 +39,23 @@
 (defrecord   Clock [?t0 ?t1 ^long total])
 
 ;;;; Time tracking
+;; We can use mutable time accumulators when thread-local.
+;; Note that LinkedList uses more mem but is faster than java.util.ArrayList.
 
-;; We can use mutable time accumulators when thread-local
-(defprotocol IMutableTimes
-  (t-add   [_ t])
-  (t-count [_])
-  (t-clear [_]))
+(defmacro t-add [x t]
+  `(enc/if-cljs
+     (.add ~(with-meta x {:tag 'ArrayList})  ~t)
+     (.add ~(with-meta x {:tag 'LinkedList}) ~t)))
 
-;; LinkedList uses more mem but is faster than java.util.ArrayList
-(extend-protocol IMutableTimes
-  #+clj LinkedList #+cljs ArrayList
-  (t-add   [x t] (.add   x t))
-  (t-count [x]   (.size  x))
-  (t-clear [x]   (.clear x)))
+(defmacro t-count [x]
+  `(enc/if-cljs
+     (.size ~(with-meta x {:tag 'ArrayList}))
+     (.size ~(with-meta x {:tag 'LinkedList}))))
+
+(defmacro t-clear [x]
+  `(enc/if-cljs
+     (.clear ~(with-meta x {:tag 'ArrayList}))
+     (.clear ~(with-meta x {:tag 'LinkedList}))))
 
 (defmacro new-mutable-times  [] `(enc/if-cljs (array-list) (LinkedList.)))
 (defmacro     mutable-times? [x]
