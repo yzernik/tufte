@@ -6,41 +6,45 @@
   (:import  [taoensso.tufte.impl IdStats Stats Clock])
   #+cljs (:require-macros [taoensso.tufte :refer (profiled)]))
 
-;; TODO perhaps allow 1,2,3,4 for calls; 0,1,2,3,4,5 for min
 ;; TODO macro perf
 
 ;;;; Level filtering
 
-(defn          valid-level? [x] (if (#{0 1 2 3 4 5} x) true false))
-(defn ^:static valid-level
-  "Returns argument if it's a valid profiling level, else throws."
-  [x]
-  (or
-    (#{0 1 2 3 4 5} x)
-    (throw
-      (ex-info "Invalid profiling level: should be int e/o #{0 1 2 3 4 5}"
-        {:given x :type (type x)}))))
+;; We deliberately make it possible to set a min-level > any form level
+(defn valid-form-level? [x] (if (#{0 1 2 3 4 5}   x) true false))
+(defn valid-min-level?  [x] (if (#{0 1 2 3 4 5 6} x) true false))
 
-(comment (enc/qb 1e5 (valid-level 4))) ; 9.29
+(def ^:const invalid-form-level-msg         "Invalid profiling level: should be int e/o #{0 1 2 3 4 5}")
+(def ^:const  invalid-min-level-msg "Invalid minimum profiling level: should be int e/o #{0 1 2 3 4 5 6}")
 
-(def ^:dynamic  *min-level* "e/o #{0 1 2 3 4 5}" 2)
+(defn ^:static valid-form-level [x]
+  (or (#{0 1 2 3 4 5} x)
+      (throw (ex-info invalid-form-level-msg {:given x :type (type x)}))))
+
+(defn ^:static valid-min-level [x]
+  (or (#{0 1 2 3 4 5 6} x)
+      (throw (ex-info invalid-min-level-msg {:given x :type (type x)}))))
+
+(comment (enc/qb 1e5 (valid-form-level 4))) ; 9.17
+
+(def ^:dynamic  *min-level* "e/o #{0 1 2 3 4 5 6}" 2)
 (defn        set-min-level!
-  "Sets root binding of minimum profiling level, e/o #{0 1 2 3 4 5}."
+  "Sets root binding of minimum profiling level, e/o #{0 1 2 3 4 5 6}."
   [level]
-  (valid-level level)
-  #+cljs (set!             *min-level*        level)
+  (valid-min-level level)
+  #+cljs (set!             *min-level*         level)
   #+clj  (alter-var-root #'*min-level* (fn [_] level)))
 
 (comment (enc/qb 1e6 *min-level*)) ; 26.5
 
 (defmacro with-min-level
-  "Executes body with dynamic minimum profiling level, e/o #{0 1 2 3 4 5}."
+  "Executes body with dynamic minimum profiling level, e/o #{0 1 2 3 4 5 6}."
   [level & body]
   (if (integer? level)
     (do
-      (valid-level level)
-      `(binding [*min-level*            ~level ] ~@body))
-    `(binding [*min-level* (valid-level ~level)] ~@body)))
+      (valid-min-level level)
+      `(binding [*min-level*                ~level ] ~@body))
+    `(binding [*min-level* (valid-min-level ~level)] ~@body)))
 
 ;;;; Namespace filtering
 
@@ -74,7 +78,7 @@
 (def ^:private compile-time-min-level
   (when-let [level (enc/read-sys-val "TUFTE_MIN_LEVEL")]
     (println (str "Compile-time (elision) Tufte min-level: " level))
-    (valid-level level)))
+    (valid-min-level level)))
 
 #+clj
 (def ^:private compile-time-ns-filter
@@ -91,7 +95,7 @@
     (and
       (or ; Level okay
         (nil? compile-time-min-level)
-        (not (valid-level? level-form)) ; Not a compile-time level const
+        (not (valid-form-level? level-form)) ; Not a compile-time level const
         (>= ^long level-form ^long compile-time-min-level))
 
       (or ; Namespace okay
@@ -102,8 +106,9 @@
   "Returns true iff level and ns are runtime unfiltered."
   ([level   ] (may-profile? level *ns*))
   ([level ns]
-   (if (>= ^long (valid-level level)
-           ^long *min-level*)
+   (if (>= ^long (valid-form-level level)
+           ^long (do #_valid-min-level *min-level*) ; Assume valid
+         )
      (if (*ns-filter* ns) true false))))
 
 (comment (enc/qb 1e5 (may-profile? 2))) ; 13.34
@@ -217,9 +222,9 @@
   [& specs]
   (let [[s1 s2] specs
         [level id body]
-        (if (and (valid-level? s1) (enc/ident? s2))
-          [s1 s2 (nnext specs)]
-          [5  s1  (next specs)] ; Never elide due to level
+        (if (and (integer? s1) (enc/ident? s2))
+          [(valid-form-level s1) s2 (nnext specs)]
+          [5                     s1  (next specs)] ; Max form level
           )]
 
     (let [id (impl/compile-time-pid id)]
