@@ -3,7 +3,12 @@
   (:require [clojure.string  :as str]
             [taoensso.encore :as enc :refer-macros ()])
   #+clj (:import [java.util LinkedList]
-                 [java.util.concurrent ArrayBlockingQueue]))
+                 [java.util.concurrent ArrayBlockingQueue])
+  #+cljs
+  (:require-macros
+   [taoensso.tufte.impl :refer
+    (new-pdata t-add t-count t-clear new-mutable-times mutable-times?
+      nano-time atom?)]))
 
 ;;;; Pdata
 
@@ -44,24 +49,24 @@
 
 (defmacro t-add [x t]
   `(enc/if-cljs
-     (.add ~(with-meta x {:tag 'ArrayList})  ~t)
+     (.add ~x ~t)
      (.add ~(with-meta x {:tag 'LinkedList}) ~t)))
 
 (defmacro t-count [x]
   `(enc/if-cljs
-     (.size ~(with-meta x {:tag 'ArrayList}))
+     (.size ~x)
      (.size ~(with-meta x {:tag 'LinkedList}))))
 
 (defmacro t-clear [x]
   `(enc/if-cljs
-     (.clear ~(with-meta x {:tag 'ArrayList}))
+     (.clear ~x)
      (.clear ~(with-meta x {:tag 'LinkedList}))))
 
-(defmacro new-mutable-times  [] `(enc/if-cljs (array-list) (LinkedList.)))
+(defmacro new-mutable-times  [] `(enc/if-cljs (cljs.core/array-list) (LinkedList.)))
 (defmacro     mutable-times? [x]
   `(enc/if-cljs
-     (instance? ArrayList  ~x)
-     (instance? LinkedList ~x)))
+     (instance? cljs.core/ArrayList  ~x)
+     (instance? LinkedList           ~x)))
 
 (defmacro nano-time [] `(enc/if-cljs (enc/nano-time) (System/nanoTime)))
 (comment (macroexpand '(nano-time)))
@@ -71,7 +76,7 @@
 (declare  ^:private times->IdStats)
 (defmacro ^:private atom? [x]
   `(enc/if-cljs
-     (instance? Atom              ~x)
+     (instance?    cljs.core.Atom ~x)
      (instance? clojure.lang.Atom ~x)))
 
 (defn ^:static capture-time! [pdata-or-pdata_ id t-elapsed]

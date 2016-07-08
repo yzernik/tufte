@@ -39,9 +39,19 @@
     programmatic inspection + analysis."
 
   {:author "Peter Taoussanis (@ptaoussanis)"}
-  (:require [taoensso.encore     :as enc]
-            [taoensso.tufte.impl :as impl :refer-macros ()])
-  (:import  [taoensso.tufte.impl IdStats Stats Clock])
+
+  #+clj
+  (:require
+   [taoensso.encore     :as enc]
+   [taoensso.tufte.impl :as impl])
+
+  #+clj (:import [taoensso.tufte.impl IdStats Stats Clock])
+
+  #+cljs
+  (:require
+   [taoensso.encore     :as enc]
+   [taoensso.tufte.impl :as impl :refer (IdStats Stats Clock)])
+
   #+cljs (:require-macros [taoensso.tufte :refer (profiled)]))
 
 ;;;; Level filtering
