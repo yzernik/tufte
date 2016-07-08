@@ -1,5 +1,43 @@
 (ns taoensso.tufte
-  "TODO docstring"
+  "A simple, fast, monitoring profiler for Clojure/Script.
+
+  Quick usage summary:
+  ====================
+    1. Wrap (and name) interesting forms/fns with `p`/`defnp`.
+    2. Use `profiled` to return [<result> ?<thread-local-stats>] vector.
+       use `profile`  to return  <result>, and handle[1] ?<thread-local-stats>.
+    3. Use `profiled-dynamic`,
+           `profile-dynamic` if you want stats for all (dynamic) threads.
+
+    [1] See `set-handler!` to un/register handler fn/s (e.g. for logging or
+        further analysis).
+
+    The `profile/d*` macros are used to conditionally[2] *activate profiling*
+    of conditional[2] `p` forms within their body: either for the current
+    thread, or for the current dynamic binding.
+
+      ;; Activate thread-local profiling while running `my-fn`:
+      `(profile 2 :my-profile-id (my-fn))`
+
+      ;; Activate dynamic (multi-threaded) profiling while running `my-fn`:
+      `(dynamic-profile 2 :my-profile-id (my-fn))`
+
+    In both cases, any unelided, unfiltered `(p ...)` forms executed by
+    `my-fn` will have their call stats recorded.
+
+    [2] Tufte provides compile-time elision, and runtime filtering as follows:
+      * `profile/d*` - Elision: [level ns], runtime: [level ns arb-test].
+      * `p`          - Elision: [level ns], runtime: [profiling-active?].
+
+    Please see the API docs for more info.
+
+  How/where to use this library:
+  ==============================
+    Tufte is highly optimized: even without elision, you can usually leave
+    profiling code in production (e.g. for sampled profiling, or to detect
+    unusual performance behaviour). Tufte's stats maps are well suited to
+    programmatic inspection + analysis."
+
   {:author "Peter Taoussanis (@ptaoussanis)"}
   (:require [taoensso.encore     :as enc]
             [taoensso.tufte.impl :as impl :refer-macros ()])
@@ -69,8 +107,6 @@
   (nsf? "foo.bar"))
 
 ;;;; Combo filtering
-;; `profile/d` - Elision: [level ns], runtime: [level ns cond]
-;; `p`         - Elision: [level ns], runtime: [profiling?]
 
 #+clj
 (def ^:private compile-time-min-level
